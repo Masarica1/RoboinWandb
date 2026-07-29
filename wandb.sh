@@ -16,3 +16,4 @@ echo "가상환경 비활성화 중..."
 deactivate
 
 echo "완료되었습니다."
+
