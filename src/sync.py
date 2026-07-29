@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 import sys
+import os
 
 import wandb
 
@@ -18,6 +19,9 @@ if __name__ == '__main__':
             if not tb_path.is_dir():
                 continue
 
+            env = os.environ.copy()
+            env['WANDB_TENSORBOARD_ROOT'] = str(tb_path)
+
             subprocess.run(
                 [
                     sys.executable, '-m', 'wandb', 'sync', '--legacy',
@@ -26,6 +30,7 @@ if __name__ == '__main__':
                     '.'
                 ],
                 check=True,
+                env=env,
                 cwd=str(tb_path)
             )
 
