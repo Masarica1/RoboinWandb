@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 echo "가상환경(.venv) 활성화 중..."
 source ./.venv/bin/activate
 
-echo "src/main.py 실행 중..."
+echo "W&B sync 실행 중..."
 python src/main.py
 
 echo "가상환경 비활성화 중..."
