@@ -1,20 +1,25 @@
 from tensorboard.backend.event_processing import event_accumulator
-
 import wandb
-
 from setting import EnvSettings
 
 if __name__ == '__main__':
     settings = EnvSettings() # type: ignore
     wandb.login(key=settings.wandb_key)
+    
+    # WandB API 초기화
+    api = wandb.Api()
 
     for project_path in settings.cyclo_lab_path.iterdir():
         if not project_path.is_dir():
             continue
 
+        project_name = project_path.name
+
         for tb_path in project_path.iterdir():
             if not tb_path.is_dir():
                 continue
+            
+            run_name = tb_path.name
 
             # set accumulator
             accumulator = event_accumulator.EventAccumulator(
@@ -22,12 +27,6 @@ if __name__ == '__main__':
                 size_guidance={'scalars': 0}
             )
             accumulator.Reload()
-
-            # init wandb
-            wandb.init(
-                project=project_path.name,
-                name=tb_path.name
-            )
 
             step_to_logs = {}
             tags = accumulator.Tags()['scalars']
@@ -41,6 +40,42 @@ if __name__ == '__main__':
                         step_to_logs[step] = {}
                     
                     step_to_logs[step][tag] = val
+            
+            # 로컬 텐서보드 로그가 아예 없는 경우 스킵
+            if not step_to_logs:
+                continue
+                
+            # 로컬 로그의 최대 스텝 수 계산
+            local_max_step = max(step_to_logs.keys())
+
+            # API를 통해 WandB에 이미 존재하는 동일한 이름의 Run 가져오기
+            existing_run = None
+            try:
+                runs = api.runs(path=project_name, filters={"display_name": run_name})
+                if len(runs) > 0:
+                    existing_run = runs[0]
+            except Exception:
+                # 프로젝트가 아직 생성되지 않은 경우 등
+                pass
+
+            # 기존 Run이 존재할 경우 스텝 수 비교
+            if existing_run:
+                # WandB에 저장된 마지막 스텝 번호 가져오기 (없으면 -1)
+                remote_max_step = existing_run.summary.get('_step', -1)
+                
+                if remote_max_step == local_max_step:
+                    print(f"[{project_name} - {run_name}] 스텝 수({local_max_step})가 동일하여 업로드를 포기합니다.")
+                    continue
+                else:
+                    print(f"[{project_name} - {run_name}] 스텝 수가 다릅니다 (WandB: {remote_max_step} / Local: {local_max_step}). 기존 Run을 삭제하고 덮어씁니다.")
+                    existing_run.delete() # 기존 Run 삭제
+
+            # init wandb
+            wandb.init(
+                project=project_name,
+                name=run_name,
+                reinit=True # 반복문 내에서 여러 번 초기화하므로 reinit=True 설정
+            )
 
             for step in sorted(step_to_logs.keys()):
                 log_dict = step_to_logs[step]
@@ -48,7 +83,5 @@ if __name__ == '__main__':
                 # wandb step 축을 텐서보드의 step과 정확히 맞춰서 로깅
                 wandb.log(log_dict, step=step)
             wandb.finish()
-print("WandB Syncronizer finisehd")
-
-
-
+            
+    print("WandB Syncronizer finished")
