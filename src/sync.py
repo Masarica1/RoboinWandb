@@ -23,9 +23,10 @@ if __name__ == '__main__':
                     sys.executable, '-m', 'wandb', 'sync', '--legacy',
                     '--project', project_path.name,
                     '--id', tb_path.name,
-                    str(tb_path)
+                    '.'
                 ],
-                check=True
+                check=True,
+                cwd=str(tb_path)
             )
 
 
