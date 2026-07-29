@@ -1,4 +1,3 @@
-from pathlib import Path
 from tensorboard.backend.event_processing import event_accumulator
 
 import wandb
@@ -33,7 +32,7 @@ if __name__ == '__main__':
             step_to_logs = {}
             tags = accumulator.Tags()['scalars']
             for tag in tags:
-                events = accumulator.Scalars(tag)
+                events: list[event_accumulator.ScalarEvent] = accumulator.Scalars(tag)
                 for event in events:
                     step = event.step
                     val = event.value
@@ -49,7 +48,7 @@ if __name__ == '__main__':
                 # wandb step 축을 텐서보드의 step과 정확히 맞춰서 로깅
                 wandb.log(log_dict, step=step)
             wandb.finish()
-print("WandB 마이그레이션 완료!")
+print("WandB Syncronizer finisehd")
 
 
 
