@@ -4,7 +4,7 @@ import sys
 
 import wandb
 
-from src.setting import EnvSettings
+from setting import EnvSettings
 
 if __name__ == '__main__':
     settings = EnvSettings() # type: ignore
