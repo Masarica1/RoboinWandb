@@ -3,6 +3,8 @@ import wandb
 from src.setting import EnvSettings
 
 
+LOG_HEAD = '\033[1mRoboinW&B\033[0m'
+
 def sync():
     settings = EnvSettings() # type: ignore
     wandb.login(key=settings.wandb_key)
@@ -65,10 +67,10 @@ def sync():
                 remote_max_step = existing_run.summary.get('_step', -1)
                 
                 if remote_max_step == local_max_step:
-                    print(f"[{project_name} - {run_name}] this run is not changed & it will not be uploaded")
+                    print(f"{LOG_HEAD}: [{project_name} - {run_name}] this run is not changed & it will not be uploaded")
                     continue
                 else:
-                    print(f"[{project_name} - {run_name}] this run is edited and will be syncronize...")
+                    print(f"{LOG_HEAD}: [{project_name} - {run_name}] this run is edited and will be syncronize...")
                     existing_run.delete() # 기존 Run 삭제
 
             # init wandb
@@ -85,8 +87,9 @@ def sync():
                 wandb.log(log_dict, step=step)
             wandb.finish()
             
-    print("WandB Syncronizer finished")
+    print(f'{LOG_HEAD}: Syncronizer iteration finished')
 
 
 if __name__ == '__name__':
     sync()
+    print(f'{LOG_HEAD}: Syncronizer finished')
