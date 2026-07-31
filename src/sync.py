@@ -2,7 +2,8 @@ from tensorboard.backend.event_processing import event_accumulator
 import wandb
 from setting import EnvSettings
 
-if __name__ == '__main__':
+
+def sync():
     settings = EnvSettings() # type: ignore
     wandb.login(key=settings.wandb_key)
     
@@ -64,10 +65,10 @@ if __name__ == '__main__':
                 remote_max_step = existing_run.summary.get('_step', -1)
                 
                 if remote_max_step == local_max_step:
-                    print(f"[{project_name} - {run_name}] 스텝 수({local_max_step})가 동일하여 업로드를 포기합니다.")
+                    print(f"[{project_name} - {run_name}] this run is not changed & it will not be uploaded")
                     continue
                 else:
-                    print(f"[{project_name} - {run_name}] 스텝 수가 다릅니다 (WandB: {remote_max_step} / Local: {local_max_step}). 기존 Run을 삭제하고 덮어씁니다.")
+                    print(f"[{project_name} - {run_name}] this run is edited and will be syncronize...")
                     existing_run.delete() # 기존 Run 삭제
 
             # init wandb
@@ -85,3 +86,7 @@ if __name__ == '__main__':
             wandb.finish()
             
     print("WandB Syncronizer finished")
+
+
+if __name__ == '__name__':
+    sync()
