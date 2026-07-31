@@ -1,6 +1,6 @@
 from tensorboard.backend.event_processing import event_accumulator
 import wandb
-from setting import EnvSettings
+from src.setting import EnvSettings
 
 
 def sync():
