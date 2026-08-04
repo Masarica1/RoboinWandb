@@ -1,96 +1,141 @@
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from pathlib import Path
+import asyncio
+
 from tensorboard.backend.event_processing import event_accumulator
+from wandb.apis.public import Run, Runs
 import wandb
 
 from src.setting import EnvSettings
 
-
 LOG_HEAD = '\033[1mRoboinW&B\033[0m'
+EXECUTOR = ThreadPoolExecutor(4)
 
-def sync():
-    settings = EnvSettings() # type: ignore
+@dataclass
+class TensorboardData:
+    project_path: Path
+    tensorboard_path: Path
+    tensorboard_data: dict[int, dict[str, float]]
+
+
+async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, Run|None]:
+    def get_run_inside() -> tuple[int, Run|None]:
+        runs = api.runs(path=path, filters={"display_name": run_name})
+
+        if not isinstance(runs, Runs):
+            raise ValueError("wandb api is something went wrong")
+
+        if len(runs) > 0:
+            run = runs[0]
+            max_steps: int|None = run.summary.get('_step', -1)
+
+            if not isinstance(max_steps, int):
+                raise ValueError("can't get max_step of run")
+            return max_steps, run
+        else:
+            return 0, None
+
+    loop = asyncio.get_running_loop()
+    try:
+        result = loop.run_in_executor(EXECUTOR, get_run_inside)
+        return await result
+    except Exception as e:
+        print(f'{LOG_HEAD} : error {e}가 발생하였습니다.')
+        print(f'{LOG_HEAD} : {path} - {run_name} 항목을 읽기에 실패했습니다.')
+        return -1, None
+
+
+
+async def sync() -> None:
+    settings = EnvSettings()  # type: ignore
     wandb.login(key=settings.wandb_key)
-    
-    # WandB API 초기화
+
     api = wandb.Api()
 
+    tensorboard_list: list[TensorboardData] = []
+
+    # 유효한 Tensorboard Data 찾기
     for project_path in settings.cyclo_lab_path.iterdir():
         if not project_path.is_dir():
             continue
 
-        project_name = project_path.name
-
         for tb_path in project_path.iterdir():
             if not tb_path.is_dir():
                 continue
-            
-            run_name = tb_path.name
 
-            # set accumulator
+            # Tf 파일 읽기
             accumulator = event_accumulator.EventAccumulator(
                 path=str(tb_path),
-                size_guidance={'scalars': 0}
+                size_guidance={"scalars": 0}
             )
-            accumulator.Reload()
+            accumulator.Reload()    
 
-            step_to_logs = {}
-            tags = accumulator.Tags()['scalars']
+            step_to_logs: dict[int, dict[str, float]] = {}
+            tags: list[str] = accumulator.Tags().get("scalars", [])
             for tag in tags:
-                events: list[event_accumulator.ScalarEvent] = accumulator.Scalars(tag)
+                events: list[event_accumulator.ScalarEvent] = (accumulator.Scalars(tag))
+
                 for event in events:
                     step = event.step
-                    val = event.value
-                    
+                    value = event.value
+
                     if step not in step_to_logs:
                         step_to_logs[step] = {}
-                    
-                    step_to_logs[step][tag] = val
-            
-            # 로컬 텐서보드 로그가 아예 없는 경우 스킵
-            if not step_to_logs:
-                continue
-                
-            # 로컬 로그의 최대 스텝 수 계산
-            local_max_step = max(step_to_logs.keys())
 
-            # API를 통해 WandB에 이미 존재하는 동일한 이름의 Run 가져오기
-            existing_run = None
-            try:
-                runs = api.runs(path=project_name, filters={"display_name": run_name})
-                if len(runs) > 0:
-                    existing_run = runs[0]
-            except Exception:
-                # 프로젝트가 아직 생성되지 않은 경우 등
-                pass
+                    step_to_logs[step][tag] = value
 
-            # 기존 Run이 존재할 경우 스텝 수 비교
-            if existing_run:
-                # WandB에 저장된 마지막 스텝 번호 가져오기 (없으면 -1)
-                remote_max_step = existing_run.summary.get('_step', -1)
-                
-                if remote_max_step == local_max_step:
-                    print(f"{LOG_HEAD}: [{project_name} - {run_name}] this run is not changed & it will not be uploaded")
-                    continue
-                else:
-                    print(f"{LOG_HEAD}: [{project_name} - {run_name}] this run is edited and will be syncronize...")
-                    existing_run.delete() # 기존 Run 삭제
+            # TF 파일이 유효할 경우 추가
+            if step_to_logs:
+                tensorboard_list.append(TensorboardData(project_path, tb_path, step_to_logs))
 
-            # init wandb
-            wandb.init(
-                project=project_name,
-                name=run_name,
-                reinit=True # 반복문 내에서 여러 번 초기화하므로 reinit=True 설정
+
+    wandb_list = await asyncio.gather(
+        *[
+            get_wandb_run(api, data.project_path.name, data.tensorboard_path.name)
+            for data in tensorboard_list
+        ]
+    )
+
+    for tb_data, (wandb_step, run) in zip(tensorboard_list, wandb_list):
+        tb_step = max(tb_data.tensorboard_data.keys())
+
+        if wandb_step == -1:
+            continue
+
+        if tb_step == wandb_step:
+            print(
+                f'{LOG_HEAD} [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
+                f" : "
+                f"학습이 최신버전으로 확인되었습니다. 업데이트를 진행하지 않습니다."
             )
+            continue
 
-            for step in sorted(step_to_logs.keys()):
-                log_dict = step_to_logs[step]
+        print(
+            f'{LOG_HEAD} [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
+            f" : "
+            f"학습이 업데이트 되었습니다. 새로 업로드를 진행합니다."
+        )
+
+        if run is not None:
+            run.delete()
+
+        wandb.init(
+            project=tb_data.project_path.name,
+            name=tb_data.tensorboard_path.name,
+            reinit=True
+        )
+
+        for step in sorted(tb_data.tensorboard_data.keys()):
+            log_dict = tb_data.tensorboard_data[step]
                 
                 # wandb step 축을 텐서보드의 step과 정확히 맞춰서 로깅
-                wandb.log(log_dict, step=step)
-            wandb.finish()
-            
-    print(f'{LOG_HEAD}: Syncronizer iteration finished')
+            wandb.log(log_dict, step=step)
+        wandb.finish()
+
+    print(f"{LOG_HEAD} 업로드가 완료되었습니다. 5분을 대기합니다.")
 
 
-if __name__ == '__name__':
-    sync()
-    print(f'{LOG_HEAD}: Syncronizer finished')
+if __name__ == "__main__":
+    asyncio.run(sync())
+    print(f"{LOG_HEAD}: RoboinW&B가 종료되었습니다.")
