@@ -11,7 +11,7 @@ from src.setting import EnvSettings, LOG_HEAD, DEBUG_HEAD
 from src.timer import TickTimer
 
 
-EXECUTOR = ThreadPoolExecutor(4)
+EXECUTOR = ThreadPoolExecutor(2)
 
 @dataclass
 class TensorboardData:

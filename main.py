@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import time
 
+from src.setting import LOG_HEAD
 from src.sync import sync, EXECUTOR
 
 def main():
@@ -12,8 +13,8 @@ def main():
     period: int = int(args.time * 60 * 60)  # seconds
     start_time = time.time()
 
-    print('W&B syncronizing is started.')
-    print(f'It lasts for {args.time} hours')
+    print(f'{LOG_HEAD}: W&B 동기화작업이 시작되었습니다.')
+    print(f'{LOG_HEAD}: {args.time} 동안 반복됩니다.')
 
     try:
         while True:
@@ -25,6 +26,7 @@ def main():
             time.sleep(10 * 30)
     finally:
         EXECUTOR.shutdown(wait=True)
+        print(f"{LOG_HEAD}: RoboinW&B가 종료되었습니다.")
 
 if __name__ == '__main__':
     main()
