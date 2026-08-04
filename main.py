@@ -2,10 +2,14 @@ import argparse
 import asyncio
 import time
 
+import setproctitle
+
 from src.setting import LOG_HEAD
 from src.sync import sync, EXECUTOR
 
 def main():
+    setproctitle.setproctitle('Roboin-W&B')
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--time', type=int, help='총 실행 시간 (hour)', required=True)
     args = parser.parse_args()

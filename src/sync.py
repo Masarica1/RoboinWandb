@@ -50,7 +50,7 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
 
         return await result
     except Exception as e:
-        print(f'{LOG_HEAD}: error {e}가 발생하였습니다.')
+        print(f'{LOG_HEAD}: Error: {e}가 발생하였습니다.')
         print(f'{LOG_HEAD}: {path} - {run_name} 항목을 읽기에 실패했습니다.')
         return -1, None
 
@@ -133,6 +133,7 @@ async def sync() -> None:
         if run is not None:
             run.delete()
 
+        # W&B에 업로드
         wandb.init(
             project=tb_data.project_path.name,
             name=tb_data.tensorboard_path.name,

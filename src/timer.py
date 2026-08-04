@@ -11,12 +11,12 @@ class TickTimer:
         self.last_name = name
 
     def update(self, name: str):
-        print(f'{DEBUG_HEAD}: {self.last_name} 틱 타이머 종료됨 - {time.monotonic() - self.last_time}초 소요됨')
+        print(f'{DEBUG_HEAD}: {self.last_name} 틱 타이머 종료됨 - {time.monotonic() - self.last_time:.4f}초 소요됨')
         self.last_name = name
         self.last_time = time.monotonic()
 
     def end(self):
-        print(f'{DEBUG_HEAD}: {self.last_name} 틱 타이머 종료됨 - {time.monotonic() - self.last_time}초 소요됨')
+        print(f'{DEBUG_HEAD}: {self.last_name} 틱 타이머 종료됨 - {time.monotonic() - self.last_time:.4f}초 소요됨')
         self.last_name = None
         
 
