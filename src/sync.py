@@ -7,10 +7,10 @@ from tensorboard.backend.event_processing import event_accumulator
 from wandb.apis.public import Run, Runs
 import wandb
 
-from src.setting import EnvSettings
+from src.setting import EnvSettings, LOG_HEAD, DEBUG_HEAD
+from src.timer import TickTimer
 
-LOG_HEAD = '\033[1mRoboinW&B\033[0m'
-DEBUG_HEAD = '\033[1;33mRoboinW&B-DEBUG\033[0m'
+
 EXECUTOR = ThreadPoolExecutor(4)
 
 @dataclass
@@ -41,17 +41,17 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
 
     loop = asyncio.get_running_loop()
     try:
+        settings.debug_log(f'{DEBUG_HEAD}: {path} - {run_name} W&B 읽기가 시작되었습니다.')
         result = loop.run_in_executor(EXECUTOR, get_run_inside)
 
-        settings.debug_log(f'{DEBUG_HEAD} : {path} - {run_name} W&B 읽기가 시작되었습니다.')
         result.add_done_callback(
-            lambda f : settings.debug_log(f'{DEBUG_HEAD} : {path} - {run_name} W&B 읽기가 완료되었습니다.')
+            lambda f : settings.debug_log(f'{DEBUG_HEAD}: {path} - {run_name} W&B 읽기가 완료되었습니다.')
             )
 
         return await result
     except Exception as e:
-        print(f'{LOG_HEAD} : error {e}가 발생하였습니다.')
-        print(f'{LOG_HEAD} : {path} - {run_name} 항목을 읽기에 실패했습니다.')
+        print(f'{LOG_HEAD}: error {e}가 발생하였습니다.')
+        print(f'{LOG_HEAD}: {path} - {run_name} 항목을 읽기에 실패했습니다.')
         return -1, None
 
 
@@ -63,6 +63,9 @@ async def sync() -> None:
     api = wandb.Api()
 
     tensorboard_list: list[TensorboardData] = []
+
+    timer = TickTimer()
+    timer.start('Tensoboard 읽기')
 
     # 유효한 Tensorboard Data 찾기
     for project_path in settings.cyclo_lab_path.iterdir():
@@ -100,6 +103,7 @@ async def sync() -> None:
     settings.debug_log(f'{DEBUG_HEAD} : 총 {len(tensorboard_list)}개의 TB 데이터가 확인되었습니다.')
 
 
+    timer.update('W&B 읽기')
     wandb_list = await asyncio.gather(
         *[
             get_wandb_run(api, data.project_path.name, data.tensorboard_path.name)
@@ -107,6 +111,7 @@ async def sync() -> None:
         ]
     )
 
+    timer.update('W&B 업로드')
     for tb_data, (wandb_step, run) in zip(tensorboard_list, wandb_list):
         tb_step = max(tb_data.tensorboard_data.keys())
 
@@ -115,13 +120,13 @@ async def sync() -> None:
 
         if tb_step == wandb_step:
             print(
-                f'{LOG_HEAD} : [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
+                f'{LOG_HEAD}: [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
                 f"학습이 최신버전으로 확인되었습니다. 업데이트를 진행하지 않습니다."
             )
             continue
 
         print(
-            f'{LOG_HEAD} : [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
+            f'{LOG_HEAD}: [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
             f"학습이 업데이트 되었습니다. 새로 업로드를 진행합니다."
         )
 
@@ -141,7 +146,8 @@ async def sync() -> None:
             wandb.log(log_dict, step=step)
         wandb.finish()
 
-    print(f"{LOG_HEAD} 업로드가 완료되었습니다. 5분을 대기합니다.")
+    timer.end()
+    print(f"{LOG_HEAD}: 업로드가 완료되었습니다. 5분을 대기합니다.")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,11 @@ from functools import cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import DirectoryPath
 
+
+LOG_HEAD = '\033[1mRoboinW&B\033[0m'
+DEBUG_HEAD = '\033[1;33mRoboinW&B-DEBUG\033[0m'
+
+
 class EnvSettings(BaseSettings):
     wandb_key: str
     cyclo_lab_path: DirectoryPath
