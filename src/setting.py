@@ -17,4 +17,9 @@ class EnvSettings(BaseSettings):
     @classmethod
     @cache
     def get(cls):
-        return cls()  # type: ignore 
+        return cls()  # type: ignore
+
+
+    def debug_log(self, x):
+        if self.debug:
+            print(x)

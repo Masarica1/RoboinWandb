@@ -43,8 +43,10 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
     try:
         result = loop.run_in_executor(EXECUTOR, get_run_inside)
 
-        if settings.debug:
-            result.add_done_callback(lambda f : print(f'{DEBUG_HEAD} : {path} - {run_name} W&B 읽기가 완료되었습니다. '))
+        settings.debug_log(f'{DEBUG_HEAD} : {path} - {run_name} W&B 읽기가 시작되었습니다.')
+        result.add_done_callback(
+            lambda f : settings.debug_log(f'{DEBUG_HEAD} : {path} - {run_name} W&B 읽기가 완료되었습니다.')
+            )
 
         return await result
     except Exception as e:
@@ -95,6 +97,7 @@ async def sync() -> None:
             # TF 파일이 유효할 경우 추가
             if step_to_logs:
                 tensorboard_list.append(TensorboardData(project_path, tb_path, step_to_logs))
+    settings.debug_log(f'{DEBUG_HEAD} : 총 {len(tensorboard_list)}개의 TB 데이터가 확인되었습니다.')
 
 
     wandb_list = await asyncio.gather(
