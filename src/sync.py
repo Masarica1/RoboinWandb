@@ -10,6 +10,7 @@ import wandb
 from src.setting import EnvSettings
 
 LOG_HEAD = '\033[1mRoboinW&B\033[0m'
+DEBUG_HEAD = '\033[1;33mRoboinW&B-DEBUG\033[0m'
 EXECUTOR = ThreadPoolExecutor(4)
 
 @dataclass
@@ -20,6 +21,8 @@ class TensorboardData:
 
 
 async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, Run|None]:
+    settings = EnvSettings.get()
+
     def get_run_inside() -> tuple[int, Run|None]:
         runs = api.runs(path=path, filters={"display_name": run_name})
 
@@ -39,6 +42,10 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
     loop = asyncio.get_running_loop()
     try:
         result = loop.run_in_executor(EXECUTOR, get_run_inside)
+
+        if settings.debug:
+            result.add_done_callback(lambda f : print(f'{DEBUG_HEAD} : {path} - {run_name} W&B 읽기가 완료되었습니다. '))
+
         return await result
     except Exception as e:
         print(f'{LOG_HEAD} : error {e}가 발생하였습니다.')
@@ -48,7 +55,7 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
 
 
 async def sync() -> None:
-    settings = EnvSettings()  # type: ignore
+    settings = EnvSettings.get()
     wandb.login(key=settings.wandb_key)
 
     api = wandb.Api()
@@ -105,15 +112,13 @@ async def sync() -> None:
 
         if tb_step == wandb_step:
             print(
-                f'{LOG_HEAD} [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
-                f" : "
+                f'{LOG_HEAD} : [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
                 f"학습이 최신버전으로 확인되었습니다. 업데이트를 진행하지 않습니다."
             )
             continue
 
         print(
-            f'{LOG_HEAD} [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
-            f" : "
+            f'{LOG_HEAD} : [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
             f"학습이 업데이트 되었습니다. 새로 업로드를 진행합니다."
         )
 
