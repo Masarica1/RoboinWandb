@@ -117,9 +117,7 @@ async def sync() -> None:
     for tb_data, (wandb_step, run) in zip(tensorboard_list, wandb_list):
         tb_step = max(tb_data.tensorboard_data.keys())
 
-        if wandb_step == -1:
-            continue
-
+        
         if tb_step == wandb_step:
             print(
                 f'{LOG_HEAD}: [{tb_data.project_path.name} - {tb_data.tensorboard_path.name}]'
