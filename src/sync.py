@@ -24,7 +24,9 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
     settings = EnvSettings.get()
 
     def get_run_inside() -> tuple[int, Run|None]:
-        if not api.project(path):
+        try:
+            api.project(path)
+        except Exception:
             return 0, None
 
         runs = api.runs(path=path, filters={"display_name": run_name})
