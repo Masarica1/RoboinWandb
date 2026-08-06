@@ -25,11 +25,9 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
 
     def get_run_inside() -> tuple[int, Run|None]:
         try:
-            api.project(path)
+           runs = api.runs(path=path, filters={"display_name": run_name}) 
         except Exception:
             return 0, None
-
-        runs = api.runs(path=path, filters={"display_name": run_name})
 
         if not isinstance(runs, Runs):
             raise ValueError("wandb api is something went wrong")
