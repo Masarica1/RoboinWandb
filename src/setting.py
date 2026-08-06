@@ -18,7 +18,6 @@ class EnvSettings(BaseSettings):
         env_file_encoding="utf-8"
     )
 
-
     @classmethod
     @cache
     def get(cls):

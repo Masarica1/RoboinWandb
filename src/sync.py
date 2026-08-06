@@ -11,7 +11,7 @@ from src.setting import EnvSettings, LOG_HEAD, DEBUG_HEAD
 from src.timer import TickTimer
 
 
-EXECUTOR = ThreadPoolExecutor(2)
+EXECUTOR = ThreadPoolExecutor(2, 'W&B-Getter')
 
 @dataclass
 class TensorboardData:
@@ -24,6 +24,9 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
     settings = EnvSettings.get()
 
     def get_run_inside() -> tuple[int, Run|None]:
+        if not api.project(path):
+            return 0, None
+
         runs = api.runs(path=path, filters={"display_name": run_name})
 
         if not isinstance(runs, Runs):
@@ -53,7 +56,6 @@ async def get_wandb_run(api: wandb.Api, path: str, run_name: str) -> tuple[int, 
         print(f'{LOG_HEAD}: Error: {e}가 발생하였습니다.')
         print(f'{LOG_HEAD}: {path} - {run_name} 항목을 읽기에 실패했습니다.')
         return -1, None
-
 
 
 async def sync() -> None:
